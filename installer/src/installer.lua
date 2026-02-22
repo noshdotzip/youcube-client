@@ -3,12 +3,12 @@ _ _  _ ____ ___ ____ _    _    ____ ____
 | |\ | [__   |  |__| |    |    |___ |__/
 | | \| ___]  |  |  | |___ |___ |___ |  \
 
-Github Repository: https://github.com/REPLACE_OWNER/youcube-client
+Github Repository: https://github.com/noshdotzip/youcube-client
 License: GPL-3.0
 ]]
 -- OpenInstaller v1.0.0 (based on wget)
 
-local REPO_RAW_BASE = "https://raw.githubusercontent.com/REPLACE_OWNER/youcube-client/main/"
+local REPO_RAW_BASE = "https://raw.githubusercontent.com/noshdotzip/youcube-client/main/"
 local BASE_URL = REPO_RAW_BASE .. "src/"
 
 local files = {

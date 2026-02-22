@@ -3,7 +3,7 @@ _   _ ____ _  _ ____ _  _ ___  ____
  \_/  |  | |  | |    |  | |__] |___
   |   |__| |__| |___ |__| |__] |___
 
-Github Repository: https://github.com/REPLACE_OWNER/youcube-client
+Github Repository: https://github.com/noshdotzip/youcube-client
 License: GPL-3.0
 ]]
 
@@ -214,7 +214,7 @@ local audiodevices = get_audiodevices()
 -- update check --
 
 local function get_versions()
-    local url = "https://raw.githubusercontent.com/REPLACE_OWNER/youcube-client/main/installer/versions.json"
+    local url = "https://raw.githubusercontent.com/noshdotzip/youcube-client/main/installer/versions.json"
 
     -- Check if the URL is valid
     local ok, err = http.checkURL(url)

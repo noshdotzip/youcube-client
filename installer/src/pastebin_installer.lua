@@ -3,12 +3,12 @@ _ _  _ ____ ___ ____ _    _    ____ ____
 | |\ | [__   |  |__| |    |    |___ |__/
 | | \| ___]  |  |  | |___ |___ |___ |  \
 
-Github Repository: https://github.com/REPLACE_OWNER/youcube-client
+Github Repository: https://github.com/noshdotzip/youcube-client
 License: GPL-3.0
 ]]
 -- OpenPastebinInstaller v1.0.0 (based on wget)
 
-local url_to_installer = "https://raw.githubusercontent.com/REPLACE_OWNER/youcube-client/main/installer/src/installer.lua"
+local url_to_installer = "https://raw.githubusercontent.com/noshdotzip/youcube-client/main/installer/src/installer.lua"
 
 if not http then
     printError("OpenPastebinInstaller requires the http API")
