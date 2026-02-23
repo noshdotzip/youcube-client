@@ -124,12 +124,28 @@ parser:option "--fps"
     :description "Force sanjuuni to use a specified frame rate"
     :target "force_fps"
 
+parser:option "--server-fps"
+    :description "Request the server to downsample the source to this FPS"
+    :target "server_fps"
+
+parser:flag "--progress"
+    :description "Show a progress bar at the bottom of the display"
+    :target "progress"
+    :action "store_true"
+
 -- stylua: ignore end
 
 local args = parser:parse({ ... })
 
 if args.force_fps then
     args.force_fps = tonumber(args.force_fps)
+end
+
+if args.server_fps then
+    args.server_fps = tonumber(args.server_fps)
+    if args.server_fps == nil then
+        parser:error("Server FPS must be a number")
+    end
 end
 
 if args.volume then
@@ -156,6 +172,11 @@ end
 
 if args.no_video and args.no_audio then
     parser:error("Nothing will happen, when audio and video is disabled!")
+end
+
+local show_progress = settings.get("youcube.progress") or false
+if args.progress then
+    show_progress = true
 end
 
 -- CraftOS-PC support --
@@ -206,10 +227,45 @@ local function get_audiodevices()
     return valid_audiodevices
 end
 
+local function pick_display_term()
+    if args.no_video then
+        return term.current(), nil
+    end
+
+    local monitors = { peripheral.find("monitor") }
+    if #monitors == 0 then
+        return term.current(), nil
+    end
+
+    local best_monitor = monitors[1]
+    local best_area = 0
+    for i = 1, #monitors do
+        local mon = monitors[i]
+        local w, h = mon.getSize()
+        local area = w * h
+        if area > best_area then
+            best_area = area
+            best_monitor = mon
+        end
+    end
+
+    return best_monitor, peripheral.getName(best_monitor)
+end
+
+local function get_video_dimensions()
+    local w, h = display_term.getSize()
+    if show_progress and h > 1 then
+        h = h - 1
+    end
+    return w, h
+end
+
 -- main --
 
 local youcubeapi = libs.youcubeapi.API.new()
 local audiodevices = get_audiodevices()
+local display_term, display_side = pick_display_term()
+local main_term = term.current()
 
 -- update check --
 
@@ -311,7 +367,7 @@ local function update_checker()
     end
 end
 
-local function play_audio(buffer, title)
+local function play_audio(buffer, title, playback_state)
     for i = 1, #audiodevices do
         local audiodevice = audiodevices[i]
         audiodevice:reset()
@@ -320,6 +376,12 @@ local function play_audio(buffer, title)
     end
 
     while true do
+        if playback_state and playback_state.paused then
+            while playback_state.paused do
+                sleep(0.1)
+            end
+        end
+
         local chunk = buffer:next()
 
         -- Adjust buffer size on first chunk
@@ -369,7 +431,8 @@ local function play(url)
     print("Requesting media ...")
 
     if not args.no_video then
-        youcubeapi:request_media(url, term.getSize())
+        local w, h = get_video_dimensions()
+        youcubeapi:request_media(url, w, h, args.server_fps)
     else
         youcubeapi:request_media(url)
     end
@@ -413,8 +476,15 @@ local function play(url)
         sleep(2)
     end
 
+    local video_width, video_height
+    if not args.no_video then
+        video_width, video_height = get_video_dimensions()
+    else
+        video_width, video_height = term.getSize()
+    end
+
     local video_buffer = libs.youcubeapi.Buffer.new(
-        libs.youcubeapi.VideoFiller.new(youcubeapi, data.id, term.getSize()),
+        libs.youcubeapi.VideoFiller.new(youcubeapi, data.id, video_width, video_height),
         60 -- Most videos run on 30 fps, so we store 2s of video.
     )
 
@@ -434,6 +504,8 @@ local function play(url)
         term.write("[DEBUG MODE]")
     end
 
+    local playback_state = { paused = false }
+
     local function fill_buffers()
         while true do
             os.queueEvent("youcube:fill_buffers")
@@ -441,7 +513,7 @@ local function play(url)
             local event = os.pullEventRaw()
 
             if event == "terminate" then
-                libs.youcubeapi.reset_term()
+                libs.youcubeapi.reset_term(display_term)
             end
 
             if not args.no_audio then
@@ -468,7 +540,15 @@ local function play(url)
             end
 
             os.queueEvent("youcube:vid_playing", data)
-            libs.youcubeapi.play_vid(video_buffer, args.force_fps, string_unpack)
+            libs.youcubeapi.play_vid(
+                video_buffer,
+                args.force_fps,
+                string_unpack,
+                display_term,
+                playback_state,
+                data.duration,
+                show_progress
+            )
             os.queueEvent("youcube:vid_eof", data)
         end
     end
@@ -476,7 +556,7 @@ local function play(url)
     local function _play_audio()
         if not args.no_audio then
             os.queueEvent("youcube:audio_playing", data)
-            play_audio(audio_buffer, data.title)
+            play_audio(audio_buffer, data.title, playback_state)
             os.queueEvent("youcube:audio_eof", data)
         end
     end
@@ -486,33 +566,46 @@ local function play(url)
         parallel.waitForAll(_play_video, _play_audio)
     end
 
-    local function _hotkey_handler()
+    local function _input_handler()
         while true do
-            local _, key = os.pullEvent("key")
+            local event, p1 = os.pullEventRaw()
 
-            if key == skip_key then
-                back_buffer[#back_buffer + 1] = url --finished playing, push the value to the back buffer
-                if #back_buffer > max_back then
-                    back_buffer[1] = nil --remove it from the front of the buffer
+            if event == "key" then
+                local key = p1
+                if key == skip_key then
+                    back_buffer[#back_buffer + 1] = url --finished playing, push the value to the back buffer
+                    if #back_buffer > max_back then
+                        back_buffer[1] = nil --remove it from the front of the buffer
+                    end
+                    if not args.no_video then
+                        libs.youcubeapi.reset_term(display_term)
+                    end
+                    break
                 end
-                if not args.no_video then
-                    libs.youcubeapi.reset_term()
-                end
-                break
-            end
 
-            if key == restart_key then
-                queue[#queue + 1] = url --add the current song to upcoming
-                if not args.no_video then
-                    libs.youcubeapi.reset_term()
+                if key == restart_key then
+                    queue[#queue + 1] = url --add the current song to upcoming
+                    if not args.no_video then
+                        libs.youcubeapi.reset_term(display_term)
+                    end
+                    restart = true
+                    break
                 end
-                restart = true
-                break
+            elseif event == "mouse_click" then
+                playback_state.paused = not playback_state.paused
+            elseif event == "monitor_touch" then
+                local side = p1
+                if display_side and side == display_side then
+                    playback_state.paused = not playback_state.paused
+                end
+            elseif event == "terminate" then
+                libs.youcubeapi.reset_term(display_term)
+                error("Terminated")
             end
         end
     end
 
-    parallel.waitForAny(fill_buffers, _play_media, _hotkey_handler)
+    parallel.waitForAny(fill_buffers, _play_media, _input_handler)
 
     if data.playlist_videos then
         return data.playlist_videos
@@ -546,7 +639,7 @@ local function play_playlist(playlist)
                         queue[#queue + 1] = prev --add previous song to upcoming
                     end
                     if not args.no_video then
-                        libs.youcubeapi.reset_term()
+                        libs.youcubeapi.reset_term(display_term)
                     end
                     break
                 end
@@ -595,7 +688,7 @@ local function main()
     youcubeapi.websocket.close()
 
     if not args.no_video then
-        libs.youcubeapi.reset_term()
+        libs.youcubeapi.reset_term(display_term)
     end
 
     os.queueEvent("youcube:playback_ended")

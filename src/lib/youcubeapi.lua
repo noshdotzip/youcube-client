@@ -225,7 +225,7 @@ end
 --- Request media
 -- @tparam string url Url or Search Term
 --@treturn table json response
-function API:request_media(url, width, height)
+function API:request_media(url, width, height, fps)
     local request = {
         ["action"] = "request_media",
         ["url"] = url,
@@ -233,6 +233,9 @@ function API:request_media(url, width, height)
     if width and height then
         request.width = width * 2
         request.height = height * 3
+    end
+    if fps then
+        request.fps = fps
     end
     self:send(request)
     --return self:receive({ ["media"] = true, ["status"] = true })
@@ -496,7 +499,11 @@ for i = 0, 15 do
     currnt_palette[i] = { r, g, b }
 end
 
-local function reset_term()
+local function reset_term(display_term)
+    local previous_term
+    if display_term then
+        previous_term = term.redirect(display_term)
+    end
     for i = 0, 15 do
         term.setPaletteColor(2 ^ i, currnt_palette[i][1], currnt_palette[i][2], currnt_palette[i][3])
     end
@@ -504,6 +511,9 @@ local function reset_term()
     term.setTextColor(colors.white)
     term.clear()
     term.setCursorPos(1, 1)
+    if previous_term then
+        term.redirect(previous_term)
+    end
 end
 
 --[[- Create's a new Buffer instance.
@@ -512,11 +522,15 @@ end
     and [sanjuuni/websocket-player.lua](https://github.com/MCJack123/sanjuuni/blob/30dcabb4b56f1eb32c88e1bce384b0898367ebda/websocket-player.lua)
     @tparam Buffer buffer filled with frames
 ]]
-local function play_vid(buffer, force_fps, string_unpack)
+local function play_vid(buffer, force_fps, string_unpack, display_term, pause_state, duration, show_progress)
     if not string_unpack then
         string_unpack = string.unpack
     end
-    local Fwidth, Fheight = term.getSize()
+    local previous_term
+    if display_term then
+        previous_term = term.redirect(display_term)
+    end
+    local display_width, display_height = term.getSize()
     local tracker = 0
 
     if buffer:next() ~= "32Vid 1.1" then
@@ -540,8 +554,38 @@ local function play_vid(buffer, force_fps, string_unpack)
 
     local start = os.epoch("utc")
     local frame_count = 0
+    local last_bar = -1
+
+    local function wait_if_paused()
+        if pause_state then
+            while pause_state.paused do
+                sleep(0.1)
+            end
+        end
+    end
+
+    local function draw_progress_bar(progress)
+        if not show_progress or not duration or duration <= 0 then
+            return
+        end
+        if display_height < 1 then
+            return
+        end
+        local filled = math.floor(display_width * progress + 0.5)
+        if filled == last_bar then
+            return
+        end
+        last_bar = filled
+        local empty = display_width - filled
+        local text = string.rep(" ", display_width)
+        local fg = string.rep("0", display_width)
+        local bg = string.rep("a", filled) .. string.rep("7", empty)
+        term.setCursorPos(1, display_height)
+        term.blit(text, fg, bg)
+    end
     while true do
         frame_count = frame_count + 1
+        wait_if_paused()
         local frame
         if first then
             frame, first = first, nil
@@ -605,11 +649,22 @@ local function play_vid(buffer, force_fps, string_unpack)
             break
         else
             while os.epoch("utc") < start + (frame_count + 1) / fps * 1000 do
+                wait_if_paused()
                 sleep(1 / fps)
             end
         end
+        if show_progress and duration and fps and fps > 0 then
+            local progress = (frame_count / fps) / duration
+            if progress > 1 then
+                progress = 1
+            end
+            draw_progress_bar(progress)
+        end
     end
-    reset_term()
+    reset_term(display_term)
+    if previous_term then
+        term.redirect(previous_term)
+    end
 end
 
 return {
