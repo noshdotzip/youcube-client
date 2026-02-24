@@ -95,6 +95,35 @@ local function websocket_with_timeout(_url, _headers, _timeout)
     return http.websocket(_url, _headers)
 end
 
+local function build_candidate_urls(server)
+    local candidates = { server }
+    local scheme, rest = server:match("^(%w+)://(.+)$")
+    if not scheme or not rest then
+        return candidates
+    end
+
+    local host, port = rest:match("^([^/]+):(%d+)(/?.*)$")
+    if host and port then
+        local path = rest:match("^[^/]+:(%d+)(/?.*)$")
+        local suffix = ""
+        if path then
+            suffix = path:gsub("^%d+", "")
+        end
+        if scheme == "wss" then
+            table.insert(candidates, "ws://" .. host .. ":" .. port .. suffix)
+            if port ~= "443" then
+                table.insert(candidates, "wss://" .. host .. suffix)
+            end
+        elseif scheme == "ws" then
+            if port ~= "443" then
+                table.insert(candidates, "wss://" .. host .. suffix)
+            end
+        end
+    end
+
+    return candidates
+end
+
 --- Connects to a YouCub Server
 function API:detect_bestest_server(_server, _verbose)
     if _server then
@@ -105,34 +134,41 @@ function API:detect_bestest_server(_server, _verbose)
         error("No default server configured. Use --server or settings.set('youcube.server', 'wss://...')")
     end
 
+    local errors = {}
+
     for i = 1, #servers do
         local server = servers[i]
-        local ok, err = http.checkURL(server:gsub("^ws://", "http://"):gsub("^wss://", "https://"))
+        local candidates = build_candidate_urls(server)
 
-        if ok then
+        for c = 1, #candidates do
+            local url = candidates[c]
+            local ok, err = http.checkURL(url:gsub("^ws://", "http://"):gsub("^wss://", "https://"))
+
             if _verbose then
-                print("Trying to connect to:", server)
+                print("Trying to connect to:", url)
             end
-            local websocket, websocket_error = websocket_with_timeout(server, nil, 5)
 
-            if websocket ~= false then
-                term.write("Using the YouCube server: ")
-                term.setTextColor(colors.blue)
-                print(server)
-                term.setTextColor(colors.white)
-                self.websocket = websocket
-                break
-            elseif i == #servers then
-                error("Could not connect to " .. server .. ": " .. tostring(websocket_error))
-            elseif _verbose then
-                print(websocket_error)
+            if ok then
+                local websocket, websocket_error = websocket_with_timeout(url, nil, 5)
+                if websocket ~= false then
+                    term.write("Using the YouCube server: ")
+                    term.setTextColor(colors.blue)
+                    print(url)
+                    term.setTextColor(colors.white)
+                    self.websocket = websocket
+                    return
+                end
+                table.insert(errors, url .. " -> " .. tostring(websocket_error))
+            else
+                table.insert(errors, url .. " -> " .. tostring(err))
             end
-        elseif i == #servers then
-            error("URL check failed for " .. server .. ": " .. tostring(err))
-        elseif _verbose then
-            print(err)
         end
     end
+
+    if #errors == 0 then
+        error("Could not connect to server")
+    end
+    error("Could not connect. Attempts:\n" .. table.concat(errors, "\n"))
 end
 
 --- Receive data from The YouCub Server
