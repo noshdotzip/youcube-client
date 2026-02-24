@@ -309,6 +309,81 @@ local function write_colored(text, color)
     term.write(text)
 end
 
+local function with_display(fn)
+    local previous_term
+    if display_term and term.redirect then
+        previous_term = term.redirect(display_term)
+    end
+    fn()
+    if previous_term then
+        term.redirect(previous_term)
+    end
+end
+
+local function render_bar(total_width, label, progress)
+    if total_width < 5 then
+        return "[" .. label .. "]"
+    end
+    if progress < 0 then
+        progress = 0
+    elseif progress > 1 then
+        progress = 1
+    end
+    local bar_width = total_width - 2
+    local label_text = "[" .. label .. "]"
+    if #label_text > bar_width then
+        label_text = label_text:sub(1, bar_width)
+    end
+    local available = bar_width - #label_text
+    local filled = math.floor(available * progress + 0.5)
+    local empty = available - filled
+    return "[" .. string.rep("#", filled) .. label_text .. string.rep("-", empty) .. "]"
+end
+
+local function show_status(message)
+    local w, h = get_video_dimensions()
+    if h < 1 then
+        return
+    end
+
+    local lower = message:lower()
+    local bar
+    local prefix
+
+    local percent = message:match("(%d+%.?%d*)%%")
+    if percent then
+        local p = tonumber(percent) or 0
+        bar = render_bar(w, string.format("%d%%", math.floor(p + 0.5)), p / 100)
+        prefix = "loading:"
+    end
+
+    if not bar then
+        local a, b = message:match("(%d+)%s*/%s*(%d+)")
+        if a and b then
+            local ai, bi = tonumber(a), tonumber(b)
+            if ai and bi and bi > 0 then
+                bar = render_bar(w, a .. "/" .. b, ai / bi)
+                prefix = "converting:"
+            end
+        end
+    end
+
+    with_display(function()
+        term.setCursorPos(1, 1)
+        term.clearLine()
+        if bar then
+            local line = prefix .. " " .. bar
+            term.write(line:sub(1, w))
+        else
+            term.write(("status: " .. message):sub(1, w))
+        end
+        if h > 1 then
+            term.setCursorPos(1, 2)
+            term.clearLine()
+        end
+    end)
+end
+
 local function new_line()
     local w, h = term.getSize()
     local x, y = term.getCursorPos()
@@ -457,11 +532,7 @@ local function play(url)
         data = youcubeapi:receive()
         if data.action == "status" then
             os.queueEvent("youcube:status", data)
-            term.setCursorPos(x, y)
-            term.clearLine()
-            term.write("Status: ")
-            write_colored(data.message, colors.green)
-            term.setTextColor(colors.white)
+            show_status(data.message)
         else
             new_line()
         end
@@ -666,7 +737,17 @@ local function play_playlist(playlist)
 end
 
 local function main()
-    youcubeapi:detect_bestest_server(args.server, args.verbose)
+    local ok, err = pcall(function()
+        youcubeapi:detect_bestest_server(args.server, args.verbose)
+    end)
+    if not ok then
+        print(err)
+        print("Set a server with:")
+        print('settings.set("youcube.server", "wss://your.server:5000")')
+        print("or run:")
+        print("youcube --server wss://your.server:5000")
+        return
+    end
     pcall(update_checker)
 
     if not args.URL then
