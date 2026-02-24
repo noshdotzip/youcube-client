@@ -29,6 +29,7 @@ end
 local extra_files = {
     "/.youcube_server",
     "/youcube_server.txt",
+    "/youcube",
 }
 
 local function is_installed()
@@ -230,11 +231,7 @@ local function save_server_url(server_url)
 end
 
 local function resolve_launcher_target()
-    local current_dir = fs.getDir(shell.getRunningProgram())
-    if current_dir == "" then
-        current_dir = "."
-    end
-    return fs.combine(current_dir, "youcube.lua")
+    return shell.resolve("./youcube.lua")
 end
 
 local function ensure_launcher()
@@ -245,14 +242,12 @@ local function ensure_launcher()
         printError(('Failed to write "%s" (%s).'):format(launcher_path, err or unknown_error))
         return
     end
-    file.write(
-        'local target = "' .. target .. '"\\n' ..
-        'if fs.exists(target) then\\n' ..
-        '  shell.run(target, ...)\\n' ..
-        'else\\n' ..
-        '  print("YouCube not found at " .. target)\\n' ..
-        'end\\n'
-    )
+    file.write("local target = " .. textutils.serialise(target) .. "\n")
+    file.write("if fs.exists(target) then\n")
+    file.write("  shell.run(target, ...)\n")
+    file.write("else\n")
+    file.write("  print(\"YouCube not found at \" .. target)\n")
+    file.write("end\n")
     file.close()
     term.setTextColour(colors.lime)
     print(('Installed launcher "%s"'):format(launcher_path))
