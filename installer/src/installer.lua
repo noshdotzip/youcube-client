@@ -231,7 +231,11 @@ local function save_server_url(server_url)
 end
 
 local function resolve_launcher_target()
-    return shell.resolve("./youcube.lua")
+    local target = shell.resolve("./youcube.lua")
+    if target:sub(1, 1) ~= "/" then
+        target = "/" .. target
+    end
+    return target
 end
 
 local function ensure_launcher()
