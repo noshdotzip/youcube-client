@@ -98,7 +98,7 @@ end
 --- Connects to a YouCub Server
 function API:detect_bestest_server(_server, _verbose)
     if _server then
-        table.insert(servers, 1, _server)
+        servers = { _server }
     end
 
     if #servers == 0 then
@@ -123,12 +123,12 @@ function API:detect_bestest_server(_server, _verbose)
                 self.websocket = websocket
                 break
             elseif i == #servers then
-                error(websocket_error)
+                error("Could not connect to " .. server .. ": " .. tostring(websocket_error))
             elseif _verbose then
                 print(websocket_error)
             end
         elseif i == #servers then
-            error(err)
+            error("URL check failed for " .. server .. ": " .. tostring(err))
         elseif _verbose then
             print(err)
         end

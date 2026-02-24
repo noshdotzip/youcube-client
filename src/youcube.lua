@@ -28,6 +28,16 @@ end
 local libs = { "youcubeapi", "numberformatter", "semver", "argparse", "string_pack" }
 local lib_paths = { ".", "./lib", "./apis", "./modules", "/", "/lib", "/apis", "/modules" }
 
+local program_path = shell.getRunningProgram()
+local program_dir = fs.getDir(program_path)
+if program_dir ~= "" then
+    table.insert(lib_paths, 1, program_dir)
+    table.insert(lib_paths, 2, program_dir .. "/lib")
+else
+    table.insert(lib_paths, 1, ".")
+    table.insert(lib_paths, 2, "./lib")
+end
+
 -- LevelOS Support
 if _G.lOS then
     lib_paths[#lib_paths + 1] = "/Program_Files/YouCube/lib"
@@ -742,12 +752,17 @@ local function main()
     end)
     if not ok then
         print(err)
-        print("Set a server with:")
-        print('settings.set("youcube.server", "wss://your.server:5000")')
-        print("or create a file:")
-        print('"/.youcube_server" containing: wss://your.server:5000')
-        print("or run:")
-        print("youcube --server wss://your.server:5000")
+        if tostring(err):find("No default server configured") then
+            print("Set a server with:")
+            print('settings.set("youcube.server", "wss://your.server:5000")')
+            print("or create a file:")
+            print('"/.youcube_server" containing: wss://your.server:5000')
+            print("or run:")
+            print("youcube --server wss://your.server:5000")
+        else
+            print("If you used --server, double-check the URL, port, and TLS.")
+            print("If you use a reverse proxy, ensure WebSocket upgrade is enabled.")
+        end
         return
     end
     pcall(update_checker)
