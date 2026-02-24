@@ -227,14 +227,21 @@ local function get_audiodevices()
     return valid_audiodevices
 end
 
+local function current_term()
+    if term.current then
+        return term.current()
+    end
+    return term
+end
+
 local function pick_display_term()
     if args.no_video then
-        return term.current(), nil
+        return current_term(), nil
     end
 
     local monitors = { peripheral.find("monitor") }
     if #monitors == 0 then
-        return term.current(), nil
+        return current_term(), nil
     end
 
     local best_monitor = monitors[1]
@@ -253,6 +260,9 @@ local function pick_display_term()
 end
 
 local function get_video_dimensions()
+    if not display_term then
+        display_term = current_term()
+    end
     local w, h = display_term.getSize()
     if show_progress and h > 1 then
         h = h - 1
