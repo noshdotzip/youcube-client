@@ -236,12 +236,21 @@ end
 
 local function ensure_launcher()
     local target = resolve_launcher_target()
+    if target:find("rom/programs/http") then
+        target = "/youcube.lua"
+    end
     local launcher_path = "/youcube"
+    if fs.exists(launcher_path) then
+        fs.delete(launcher_path)
+    end
     local file, err = fs.open(launcher_path, "w")
     if not file then
         printError(('Failed to write "%s" (%s).'):format(launcher_path, err or unknown_error))
         return
     end
+    term.setTextColour(colors.lightGray)
+    print(('Launcher target: %s'):format(target))
+    term.setTextColour(colors.white)
     file.write("local target = " .. textutils.serialise(target) .. "\n")
     file.write("if fs.exists(target) then\n")
     file.write("  shell.run(target, ...)\n")
