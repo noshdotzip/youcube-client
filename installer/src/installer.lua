@@ -207,8 +207,7 @@ local function ask_server_url()
     return nil
 end
 
-local server_url = ask_server_url()
-if server_url then
+local function save_server_url(server_url)
     if settings and settings.set then
         settings.set("youcube.server", server_url)
         if settings.save then
@@ -221,10 +220,72 @@ if server_url then
     local file, file_open_error_message = fs.open(file_path, "w")
     if not file then
         printError(('Failed to save "%s" (%s).'):format(file_path, file_open_error_message or unknown_error))
-        return
+        return false
     end
     file.write(server_url)
     file.close()
     term.setTextColour(colors.lime)
     print(('Saved "%s"'):format(file_path))
+    return true
 end
+
+local function resolve_launcher_target()
+    local current_dir = fs.getDir(shell.getRunningProgram())
+    if current_dir == "" then
+        current_dir = "."
+    end
+    return fs.combine(current_dir, "youcube.lua")
+end
+
+local function ensure_launcher()
+    local target = resolve_launcher_target()
+    local launcher_path = "/youcube"
+    local file, err = fs.open(launcher_path, "w")
+    if not file then
+        printError(('Failed to write "%s" (%s).'):format(launcher_path, err or unknown_error))
+        return
+    end
+    file.write(
+        'local target = "' .. target .. '"\\n' ..
+        'if fs.exists(target) then\\n' ..
+        '  shell.run(target, ...)\\n' ..
+        'else\\n' ..
+        '  print("YouCube not found at " .. target)\\n' ..
+        'end\\n'
+    )
+    file.close()
+    term.setTextColour(colors.lime)
+    print(('Installed launcher "%s"'):format(launcher_path))
+end
+
+local function ensure_server_config()
+    local file_path = "/.youcube_server"
+    local server_url = nil
+    if fs.exists(file_path) then
+        local file = fs.open(file_path, "r")
+        if file then
+            local value = file.readAll()
+            file.close()
+            if value and value:gsub("%s+", "") ~= "" then
+                server_url = value:gsub("^%s+", ""):gsub("%s+$", "")
+            end
+        end
+    end
+
+    if not server_url then
+        server_url = ask_server_url()
+    end
+
+    if server_url then
+        save_server_url(server_url)
+    else
+        term.setTextColour(colors.yellow)
+        print("No server URL configured. You can set it later with:")
+        print('settings.set("youcube.server", "wss://your.server:5000")')
+        print('or by writing it to "/.youcube_server"')
+        term.setTextColour(colors.white)
+    end
+end
+
+ensure_launcher()
+ensure_server_config()
