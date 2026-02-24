@@ -3,4 +3,4 @@
 Script that installs the YouCube client.
 
 Cleanup:
-- Upload `installer/src/pastebin_cleanup.lua` to Pastebin and run it to remove installed files.
+- The installer now offers a Remove option if it detects an existing installation.

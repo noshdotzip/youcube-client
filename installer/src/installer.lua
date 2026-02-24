@@ -26,6 +26,26 @@ if not http then
     return
 end
 
+local extra_files = {
+    "/.youcube_server",
+    "/youcube_server.txt",
+}
+
+local function is_installed()
+    for path, _ in pairs(files) do
+        local resolved_path = shell.resolve(path)
+        if fs.exists(resolved_path) then
+            return true
+        end
+    end
+    for _, path in pairs(extra_files) do
+        if fs.exists(path) then
+            return true
+        end
+    end
+    return false
+end
+
 local function tableContains(_table, element)
     for _, value in pairs(_table) do
         if value == element then
@@ -87,9 +107,74 @@ local function http_get(url)
     return response_body
 end
 
+local function remove_installation()
+    local removed = false
+    for path, _ in pairs(files) do
+        local resolved_path = shell.resolve(path)
+        if fs.exists(resolved_path) then
+            fs.delete(resolved_path)
+            term.setTextColour(colors.lime)
+            print(('Deleted "%s"'):format(path))
+            removed = true
+        end
+    end
+
+    for _, path in pairs(extra_files) do
+        if fs.exists(path) then
+            fs.delete(path)
+            term.setTextColour(colors.lime)
+            print(('Deleted "%s"'):format(path))
+            removed = true
+        end
+    end
+
+    local lib_path = shell.resolve("./lib")
+    if fs.exists(lib_path) then
+        local contents = fs.list(lib_path)
+        if #contents == 0 then
+            fs.delete(lib_path)
+            term.setTextColour(colors.lime)
+            print('Deleted "./lib"')
+        end
+    end
+
+    if not removed then
+        term.setTextColour(colors.yellow)
+        print("No installed files found.")
+    end
+    term.setTextColour(colors.white)
+end
+
+local function prompt_action()
+    term.setTextColour(colors.white)
+    print("YouCube is already installed. Choose an action:")
+    print("1. Cancel")
+    print("2. Update")
+    print("3. Remove")
+    term.setTextColour(colors.lightGray)
+    local choice = read()
+    term.setTextColour(colors.white)
+    return choice
+end
+
+local always_override = false
+if is_installed() then
+    local action = prompt_action()
+    if action == "1" or action == "cancel" then
+        return
+    elseif action == "3" or action == "remove" then
+        if question("Remove YouCube files") then
+            remove_installation()
+        end
+        return
+    else
+        always_override = true
+    end
+end
+
 for path, download_url in pairs(files) do
     local resolved_path = shell.resolve(path)
-    if fs.exists(resolved_path) then
+    if fs.exists(resolved_path) and not always_override then
         if not question(('"%s" already exists. Override'):format(path)) then
             return
         end
