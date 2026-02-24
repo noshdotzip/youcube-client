@@ -744,6 +744,8 @@ local function main()
         print(err)
         print("Set a server with:")
         print('settings.set("youcube.server", "wss://your.server:5000")')
+        print("or create a file:")
+        print('"/.youcube_server" containing: wss://your.server:5000')
         print("or run:")
         print("youcube --server wss://your.server:5000")
         return

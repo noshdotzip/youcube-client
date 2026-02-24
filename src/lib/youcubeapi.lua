@@ -32,10 +32,38 @@ end
 -- No default servers are configured. Use settings or --server.
 local servers = {}
 
+local function read_server_file()
+    if not fs or not fs.exists then
+        return nil
+    end
+    local candidates = { "/.youcube_server", "/youcube_server.txt", "youcube_server.txt" }
+    for i = 1, #candidates do
+        local path = candidates[i]
+        if fs.exists(path) then
+            local file = fs.open(path, "r")
+            if file then
+                local value = file.readAll()
+                file.close()
+                if value and value:gsub("%s+", "") ~= "" then
+                    return value:gsub("^%s+", ""):gsub("%s+$", "")
+                end
+            end
+        end
+    end
+    return nil
+end
+
 if settings then
     local server = settings.get("youcube.server")
     if server then
         table.insert(servers, 1, server)
+    end
+end
+
+if #servers == 0 then
+    local file_server = read_server_file()
+    if file_server then
+        table.insert(servers, 1, file_server)
     end
 end
 

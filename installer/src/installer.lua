@@ -109,3 +109,37 @@ for path, download_url in pairs(files) do
     term.setTextColour(colors.lime)
     print(('Downloaded "%s"'):format(path))
 end
+
+local function ask_server_url()
+    term.setTextColour(colors.white)
+    print("Enter your YouCube server URL (leave blank to skip):")
+    term.setTextColour(colors.lightGray)
+    local input = read()
+    term.setTextColour(colors.white)
+    if input and input:gsub("%s+", "") ~= "" then
+        return input
+    end
+    return nil
+end
+
+local server_url = ask_server_url()
+if server_url then
+    if settings and settings.set then
+        settings.set("youcube.server", server_url)
+        if settings.save then
+            settings.save()
+        end
+        print('Saved settings "youcube.server"')
+    end
+
+    local file_path = "/.youcube_server"
+    local file, file_open_error_message = fs.open(file_path, "w")
+    if not file then
+        printError(('Failed to save "%s" (%s).'):format(file_path, file_open_error_message or unknown_error))
+        return
+    end
+    file.write(server_url)
+    file.close()
+    term.setTextColour(colors.lime)
+    print(('Saved "%s"'):format(file_path))
+end
