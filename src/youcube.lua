@@ -227,6 +227,9 @@ local function get_audiodevices()
     return valid_audiodevices
 end
 
+local display_term
+local display_side
+
 local function current_term()
     if term.current then
         return term.current()
@@ -274,7 +277,7 @@ end
 
 local youcubeapi = libs.youcubeapi.API.new()
 local audiodevices = get_audiodevices()
-local display_term, display_side = pick_display_term()
+display_term, display_side = pick_display_term()
 local main_term = term.current()
 
 -- update check --
