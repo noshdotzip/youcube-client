@@ -29,14 +29,8 @@ function API.new(websocket)
     }, { __index = API })
 end
 
--- Look at the [Documentation](https://commandcracker.github.io/YouCube/) for moor information
--- Contact the server owner on Discord, when the server is down
-local servers = {
-    "ws://127.0.0.1:5000", -- Your server!
-    "wss://us-ky.youcube.knijn.one", -- By EmmaKnijn
-    "wss://youcube.knijn.one", -- By EmmaKnijn
-    "wss://youcube.onrender.com", -- By Commandcracker#8528
-}
+-- No default servers are configured. Use settings or --server.
+local servers = {}
 
 if settings then
     local server = settings.get("youcube.server")
@@ -77,6 +71,10 @@ end
 function API:detect_bestest_server(_server, _verbose)
     if _server then
         table.insert(servers, 1, _server)
+    end
+
+    if #servers == 0 then
+        error("No default server configured. Use --server or settings.set('youcube.server', 'wss://...')")
     end
 
     for i = 1, #servers do

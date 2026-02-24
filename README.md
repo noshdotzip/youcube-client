@@ -4,16 +4,28 @@ Client programs for ComputerCraft: Tweaked.
 
 ## Contents
 - `src/` main client program and libraries
-- `installer/` install scripts (Lua)
+- `installer/` install and cleanup scripts (Lua)
 - `extras/wavestream/` WaveStream client utilities
 
-## Quick Start (local)
-1. Copy `src/youcube.lua` and `src/lib/` to your CC computer.
-2. Run `youcube`.
-3. Set `youcube.server` to your server WebSocket URL.
+## Setup
+1. Install the client.
+2. Set your server URL:
+   - `settings.set("youcube.server", "wss://your.server:5000")`
+   - or run `youcube --server wss://your.server:5000`
+
+## Features
+- Auto-selects the largest attached monitor (falls back to terminal).
+- Click to pause/resume (terminal or monitor).
+- Optional progress bar: `youcube --progress` or `settings.set("youcube.progress", true)`.
+- Server-side FPS downsample: `youcube --server-fps 15`.
+- Optional playback FPS override: `youcube --fps 15`.
 
 ## Installer
-The installer lives at `installer/src/installer.lua`. Host it (HTTP/pastebin) and replace `noshdotzip` in the installer scripts with your GitHub org/user.
+- Install bootstrap: `installer/src/pastebin_installer.lua`
+- Cleanup bootstrap: `installer/src/pastebin_cleanup.lua`
+
+## Server Docs
+https://github.com/noshdotzip/youcube-server#readme
 
 ## Legacy Docs
 See `README.legacy.md` for upstream documentation (settings, events, older install flows).
