@@ -634,14 +634,13 @@ local function play_vid(buffer, force_fps, string_unpack, display_term, pause_st
             return
         end
         local filled = math.floor(display_width * progress + 0.5)
-        if filled == last_bar then
+        if filled <= last_bar then
             return
         end
         last_bar = filled
-        local empty = display_width - filled
-        local text = string.rep(" ", display_width)
-        local fg = string.rep("0", display_width)
-        local bg = string.rep("a", filled) .. string.rep("7", empty)
+        local text = string.rep(" ", filled)
+        local fg = string.rep("0", filled)
+        local bg = string.rep("c", filled)
         term.setCursorPos(1, display_height)
         term.blit(text, fg, bg)
     end
