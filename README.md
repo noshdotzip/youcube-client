@@ -10,8 +10,9 @@ Client programs for ComputerCraft: Tweaked.
 ## Setup
 1. Install the client.
 2. Set your server URL:
-   - `settings.set("youcube.server", "wss://your.server:5000")`
-   - or run `youcube --server wss://your.server:5000`
+   - Run `youcube --server wss://your.server:5000`, or
+   - Edit `/.youcube_server` with your URL (installer writes this).
+   - If your CC version supports `settings`, `settings.set("youcube.server", "wss://your.server:5000")` also works.
 
 ## Features
 - Auto-selects the largest attached monitor (falls back to terminal).
@@ -19,6 +20,7 @@ Client programs for ComputerCraft: Tweaked.
 - Optional progress bar: `youcube --progress` or `settings.set("youcube.progress", true)`.
 - Server-side FPS downsample: `youcube --server-fps 15`.
 - Optional playback FPS override: `youcube --fps 15`.
+- If both are set, `--server-fps` controls conversion and `--fps` controls playback timing.
 
 ## Installer
 - Install bootstrap: `installer/src/pastebin_installer.lua`

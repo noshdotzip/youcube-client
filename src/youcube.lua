@@ -582,10 +582,13 @@ local function play(url)
         video_width, video_height = term.getSize()
     end
 
+    local video_buffer_seconds = 4
+    local assumed_fps = args.force_fps or 30
     local video_buffer = libs.youcubeapi.Buffer.new(
         libs.youcubeapi.VideoFiller.new(youcubeapi, data.id, video_width, video_height),
-        60 -- Most videos run on 30 fps, so we store 2s of video.
+        math.max(30, math.ceil(assumed_fps * video_buffer_seconds))
     )
+    video_buffer.seconds = video_buffer_seconds
 
     local audio_buffer = libs.youcubeapi.Buffer.new(
         libs.youcubeapi.AudioFiller.new(youcubeapi, data.id),
@@ -665,6 +668,25 @@ local function play(url)
         parallel.waitForAll(_play_video, _play_audio)
     end
 
+    local function prebuffer()
+        local target_video = math.min(video_buffer.size, math.max(10, math.ceil(assumed_fps * 1.5)))
+        local target_audio = 8
+        local deadline = os.epoch("utc") + 5000
+        while os.epoch("utc") < deadline do
+            local ok_video = args.no_video or (#video_buffer.buffer >= target_video)
+            local ok_audio = args.no_audio or (#audio_buffer.buffer >= target_audio)
+            if ok_video and ok_audio then
+                break
+            end
+            if not args.no_audio then
+                audio_buffer:fill()
+            end
+            if not args.no_video then
+                video_buffer:fill()
+            end
+        end
+    end
+
     local function _input_handler()
         while true do
             local event, p1 = os.pullEventRaw()
@@ -704,6 +726,7 @@ local function play(url)
         end
     end
 
+    prebuffer()
     parallel.waitForAny(fill_buffers, _play_media, _input_handler)
 
     if data.playlist_videos then

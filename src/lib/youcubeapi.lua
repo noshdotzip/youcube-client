@@ -604,8 +604,9 @@ local function play_vid(buffer, force_fps, string_unpack, display_term, pause_st
         fps = force_fps
     end
 
-    -- Adjust buffer size
-    buffer.size = math.ceil(fps) * 2
+    -- Adjust buffer size (default to 4s if provided)
+    local buffer_seconds = buffer.seconds or 2
+    buffer.size = math.ceil(fps) * buffer_seconds
 
     local first, second = buffer:next(), buffer:next()
 
@@ -617,13 +618,33 @@ local function play_vid(buffer, force_fps, string_unpack, display_term, pause_st
     local start = os.epoch("utc")
     local frame_count = 0
     local last_bar = -1
+    local paused_at = nil
 
     local function wait_if_paused()
         if pause_state then
             while pause_state.paused do
+                if not paused_at then
+                    paused_at = os.epoch("utc")
+                end
                 sleep(0.1)
             end
+            if paused_at then
+                start = start + (os.epoch("utc") - paused_at)
+                paused_at = nil
+            end
         end
+    end
+
+    local function next_frame()
+        local frame
+        if first then
+            frame, first = first, nil
+        elseif second then
+            frame, second = second, nil
+        else
+            frame = buffer:next()
+        end
+        return frame
     end
 
     local function draw_progress_bar(progress)
@@ -647,14 +668,7 @@ local function play_vid(buffer, force_fps, string_unpack, display_term, pause_st
     while true do
         frame_count = frame_count + 1
         wait_if_paused()
-        local frame
-        if first then
-            frame, first = first, nil
-        elseif second then
-            frame, second = second, nil
-        else
-            frame = buffer:next()
-        end
+        local frame = next_frame()
         if frame == "" or frame == nil then
             break
         end
@@ -709,6 +723,21 @@ local function play_vid(buffer, force_fps, string_unpack, display_term, pause_st
             read()
             break
         else
+            local now = os.epoch("utc")
+            local expected_ms = (frame_count / fps) * 1000
+            local behind_ms = now - (start + expected_ms)
+            if behind_ms > (1000 / fps) * 1.5 then
+                local skip = math.floor(behind_ms * fps / 1000)
+                while skip > 0 do
+                    local skipped = next_frame()
+                    if skipped == "" or skipped == nil then
+                        skip = 0
+                        break
+                    end
+                    frame_count = frame_count + 1
+                    skip = skip - 1
+                end
+            end
             while os.epoch("utc") < start + (frame_count + 1) / fps * 1000 do
                 wait_if_paused()
                 sleep(1 / fps)
