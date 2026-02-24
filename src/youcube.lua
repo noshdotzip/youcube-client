@@ -351,7 +351,10 @@ local function render_bar(total_width, label, progress)
 end
 
 local function show_status(message)
-    local w, h = get_video_dimensions()
+    if not display_term then
+        display_term = current_term()
+    end
+    local w, h = display_term.getSize()
     if h < 1 then
         return
     end
@@ -382,14 +385,16 @@ local function show_status(message)
         term.setCursorPos(1, 1)
         term.clearLine()
         if bar then
-            local line = prefix .. " " .. bar
-            term.write(line:sub(1, w))
+            term.write(bar:sub(1, w))
         else
             term.write(("status: " .. message):sub(1, w))
         end
         if h > 1 then
             term.setCursorPos(1, 2)
             term.clearLine()
+            if bar and prefix then
+                term.write(prefix)
+            end
         end
     end)
 end
